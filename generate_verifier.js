@@ -1,4 +1,10 @@
-// SPDX-License-Identifier: GPL-3.0
+const fs = require('fs');
+
+// verification_key.jsonから読み込み
+const vk = JSON.parse(fs.readFileSync('./proof/verification_key.json'));
+
+// Solidityテンプレートを生成
+const solidityTemplate = `// SPDX-License-Identifier: GPL-3.0
 /*
     Copyright 2021 0KIMS association.
 
@@ -27,28 +33,23 @@ contract Groth16Verifier {
     uint256 constant q   = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
     // Verification Key data
-    uint256 constant alphax  = 18884617969667662644420884544505381395102136743821913016508128997838886003771;
-    uint256 constant alphay  = 19562393612502262175297894058139380901214930878782378538252400810433692263900;
-    uint256 constant betax1  = 7432252265381990309418487183715007371923327986675900259148624800100254251489;
-    uint256 constant betax2  = 1345989674021708618197570576367552994578903984314775624761251305710581805144;
-    uint256 constant betay1  = 16467922316499616288850309929577702041837073111093953772283896869453990868834;
-    uint256 constant betay2  = 18306920756427483202231692352595521780888587724576882730704111959103237023171;
-    uint256 constant gammax1 = 11559732032986387107991004021392285783925812861821192530917403151452391805634;
-    uint256 constant gammax2 = 10857046999023057135944570762232829481370756359578518086990519993285655852781;
-    uint256 constant gammay1 = 4082367875863433681332203403145435568316851327593401208105741076214120093531;
-    uint256 constant gammay2 = 8495653923123431417604973247489272438418190587263600148770280649306958101930;
-    uint256 constant deltax1 = 3578618042885145925448952095750392154612152452400933150323018015054083739407;
-    uint256 constant deltax2 = 6089297891745679366443801142101303412674361117443260807965930174611327700601;
-    uint256 constant deltay1 = 691021030349799997073315583100682376764122280078126129061253208325492915239;
-    uint256 constant deltay2 = 1283462260503686146033986899290105435487627014071400548050556625229004160878;
+    uint256 constant alphax  = ${vk.vk_alpha_1[0]};
+    uint256 constant alphay  = ${vk.vk_alpha_1[1]};
+    uint256 constant betax1  = ${vk.vk_beta_2[0][1]};
+    uint256 constant betax2  = ${vk.vk_beta_2[0][0]};
+    uint256 constant betay1  = ${vk.vk_beta_2[1][1]};
+    uint256 constant betay2  = ${vk.vk_beta_2[1][0]};
+    uint256 constant gammax1 = ${vk.vk_gamma_2[0][1]};
+    uint256 constant gammax2 = ${vk.vk_gamma_2[0][0]};
+    uint256 constant gammay1 = ${vk.vk_gamma_2[1][1]};
+    uint256 constant gammay2 = ${vk.vk_gamma_2[1][0]};
+    uint256 constant deltax1 = ${vk.vk_delta_2[0][1]};
+    uint256 constant deltax2 = ${vk.vk_delta_2[0][0]};
+    uint256 constant deltay1 = ${vk.vk_delta_2[1][1]};
+    uint256 constant deltay2 = ${vk.vk_delta_2[1][0]};
 
-    
-    uint256 constant IC0x = 5563006519941867853563579799664615714430648897381643861164436787758749846284;
-    uint256 constant IC0y = 6430591569738342960526907248040512992450858536402903857025875379202153449851;
-    
-    uint256 constant IC1x = 15561645882312169426257281654260927715694461253158678986495895280618660943198;
-    uint256 constant IC1y = 10929579892710980521212362970774310613264467750869519597954013950275223193074;
-    
+    ${vk.IC.map((ic, i) => `uint256 constant IC${i}x = ${ic[0]};
+    uint256 constant IC${i}y = ${ic[1]};`).join('\n    ')}
  
     // Memory data
     uint16 constant pVk = 0;
@@ -56,7 +57,7 @@ contract Groth16Verifier {
 
     uint16 constant pLastMem = 896;
 
-    function verifyProof(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[1] calldata _pubSignals) public view returns (bool) {
+    function verifyProof(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[${vk.nPublic + 1}] calldata _pubSignals) public view returns (bool) {
         assembly {
             function checkField(v) {
                 if iszero(lt(v, r)) {
@@ -99,9 +100,7 @@ contract Groth16Verifier {
                 mstore(add(_pVk, 32), IC0y)
 
                 // Compute the linear combination vk_x
-                
-                g1_mulAccC(_pVk, IC1x, IC1y, calldataload(add(pubSignals, 0)))
-                
+                ${vk.IC.slice(1).map((_, i) => `g1_mulAccC(_pVk, IC${i+1}x, IC${i+1}y, calldataload(add(pubSignals, ${i * 32})))`).join('\n                ')}
 
                 // -A
                 mstore(_pPairing, calldataload(pA))
@@ -127,7 +126,6 @@ contract Groth16Verifier {
                 mstore(add(_pPairing, 384), mload(add(pMem, pVk)))
                 mstore(add(_pPairing, 416), mload(add(pMem, add(pVk, 32))))
 
-
                 // gamma2
                 mstore(add(_pPairing, 448), gammax1)
                 mstore(add(_pPairing, 480), gammax2)
@@ -144,7 +142,6 @@ contract Groth16Verifier {
                 mstore(add(_pPairing, 704), deltay1)
                 mstore(add(_pPairing, 736), deltay2)
 
-
                 let success := staticcall(sub(gas(), 2000), 8, _pPairing, 768, _pPairing, 0x20)
 
                 isOk := and(success, mload(_pPairing))
@@ -154,9 +151,7 @@ contract Groth16Verifier {
             mstore(0x40, add(pMem, pLastMem))
 
             // Validate that all evaluations ∈ F
-            
-            checkField(calldataload(add(_pubSignals, 0)))
-            
+            ${vk.nPublic > 0 ? vk.IC.slice(1).map((_, i) => `checkField(calldataload(add(_pubSignals, ${i * 32})))`).join('\n            ') : ''}
 
             // Validate all evaluations
             let isValid := checkPairing(_pA, _pB, _pC, _pubSignals, pMem)
@@ -166,3 +161,10 @@ contract Groth16Verifier {
          }
      }
  }
+`;
+
+// 新しいVerifier.solに書き込み
+fs.writeFileSync('./contracts/Verifier.sol', solidityTemplate);
+console.log('New Verifier.sol generated successfully!');
+console.log('nPublic:', vk.nPublic);
+console.log('IC length:', vk.IC.length);

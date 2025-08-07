@@ -1,17 +1,16 @@
-const hre = require("hardhat");
-
+// scripts/deploy.js
 async function main() {
-  const Verifier = await hre.ethers.getContractFactory("Verifier");
+  const Verifier = await ethers.getContractFactory("Groth16Verifier");
   const verifier = await Verifier.deploy();
-  await verifier.deployed();
+  await verifier.waitForDeployment();
 
-  console.log("Verifier deployed to:", verifier.address);
+  console.log("Verifier deployed to:", await verifier.getAddress());
 
-  const ZKPStorage = await hre.ethers.getContractFactory("ZKPStorage");
-  const zkpStorage = await ZKPStorage.deploy(verifier.address);
-  await zkpStorage.deployed();
+  const ZKPStorage = await ethers.getContractFactory("ZKPStorage");
+  const zkpStorage = await ZKPStorage.deploy(await verifier.getAddress());
+  await zkpStorage.waitForDeployment();
 
-  console.log("ZKPStorage deployed to:", zkpStorage.address);
+  console.log("ZKPStorage deployed to:", await zkpStorage.getAddress());
 }
 
 main().catch((error) => {
