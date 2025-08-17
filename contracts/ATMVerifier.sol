@@ -14,7 +14,7 @@ contract ZKPStorage {
         uint[2] a;
         uint[2][2] b;
         uint[2] c;
-        uint[1] input; // 固定長配列
+        uint[1] input;
     }
 
     mapping(address => Proof) private proofs;
