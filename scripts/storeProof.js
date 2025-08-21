@@ -2,7 +2,7 @@ const hre = require("hardhat");
 const fs = require("fs");
 
 async function main() {
-  const zkpStorageAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+  const zkpStorageAddress = "0xf629EDbe20624d326fd3308C27F42A1C4BEBAC35";
 
   const [signer] = await hre.ethers.getSigners();
   console.log("Using signer:", await signer.getAddress());
